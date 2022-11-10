@@ -34,3 +34,6 @@
 *.utf
 
 build/
+.cache/
+controller_code/examples
+controller_code/demo*
