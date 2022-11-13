@@ -37,19 +37,23 @@
 
 MAX30101 *MAX30101::instance = NULL;
 
+int MAX_sda;
+int MAX_scl;
+int MAX_slaveAddress;
+
 //******************************************************************************
 MAX30101::MAX30101(uint8_t sda, uint8_t scl, uint8_t addr) {
   i2c = i2c0;
-  _sda = sda;
-  _scl = scl;
+  MAX_sda = sda;
+  MAX_scl = scl;
   i2c_owner = true;
   i2c_init(i2c, 400 * 1000);
-  gpio_set_function(_sda, GPIO_FUNC_I2C);
-  gpio_set_function(_scl, GPIO_FUNC_I2C);
+  gpio_set_function(MAX_sda, GPIO_FUNC_I2C);
+  gpio_set_function(MAX_scl, GPIO_FUNC_I2C);
   onInterruptCallback = NULL;
   onDataAvailableCallback = NULL;
   instance = this;
-  slaveAddress = addr;
+  MAX_slaveAddress = addr;
 }
 
 //******************************************************************************
@@ -81,36 +85,36 @@ int MAX30101::int_handler(void) {
   cntr_int++;
 
   while (loop) {
-    if (reg_read(i2c, slaveAddress, REG_INT_STAT_1, &Interrupt_Status_1.all, 1) != 0) { ///< Read Interrupt flag bits
+    if (reg_read(i2c, MAX_slaveAddress, REG_INT_STAT_1, &Interrupt_Status_1.all, 1) != 0) { ///< Read Interrupt flag bits
       return -1;
     }
 
-    if (reg_read(i2c, slaveAddress, REG_INT_STAT_2, &Interrupt_Status_2.all, 1) != 0) { ///< Read Interrupt flag bits
+    if (reg_read(i2c, MAX_slaveAddress, REG_INT_STAT_2, &Interrupt_Status_2.all, 1) != 0) { ///< Read Interrupt flag bits
       return -1;
     }
 
     /* Read all the relevant register bits */
-    if (reg_read(i2c, slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) {
+    if (reg_read(i2c, MAX_slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) {
       return -1;
     }
 
 
-    if (reg_read(i2c, slaveAddress, REG_SLT2_SLT1, &multiLED_mode_ctrl_1.all, 1) != 0) {
+    if (reg_read(i2c, MAX_slaveAddress, REG_SLT2_SLT1, &multiLED_mode_ctrl_1.all, 1) != 0) {
       return -1;
     }
     
 
-    if (reg_read(i2c, slaveAddress, REG_SLT4_SLT3, &multiLED_mode_ctrl_2.all, 1) != 0) {
+    if (reg_read(i2c, MAX_slaveAddress, REG_SLT4_SLT3, &multiLED_mode_ctrl_2.all, 1) != 0) {
       return -1;
     }    
     
 
-    if (reg_read(i2c, slaveAddress, REG_SPO2_CFG, &spo2_configuration.all, 1) != 0) {
+    if (reg_read(i2c, MAX_slaveAddress, REG_SPO2_CFG, &spo2_configuration.all, 1) != 0) {
       return -1;
     }  
     
 
-    if (reg_read(i2c, slaveAddress, REG_FIFO_CFG, &fifo_configuration.all, 1) != 0) {
+    if (reg_read(i2c, MAX_slaveAddress, REG_FIFO_CFG, &fifo_configuration.all, 1) != 0) {
       return -1;
     }     
     
@@ -182,13 +186,13 @@ int MAX30101::int_handler(void) {
        */
 
       if (rx_bytes <= CHUNK_SIZE) {
-        reg_read(i2c, slaveAddress, reg, &max30101_rawData[0],
+        reg_read(i2c, MAX_slaveAddress, reg, &max30101_rawData[0],
                   (uint8_t)rx_bytes /*total_databytes_1*/);
       } else {
-        reg_read(i2c, slaveAddress, reg, &max30101_rawData[0], CHUNK_SIZE);
+        reg_read(i2c, MAX_slaveAddress, reg, &max30101_rawData[0], CHUNK_SIZE);
 
         second_rx_bytes = second_rx_bytes - CHUNK_SIZE;
-        reg_read(i2c, slaveAddress, reg, &max30101_rawData[CHUNK_SIZE],
+        reg_read(i2c, MAX_slaveAddress, reg, &max30101_rawData[CHUNK_SIZE],
                   (uint8_t)second_rx_bytes);
       }
 
@@ -212,23 +216,23 @@ int MAX30101::int_handler(void) {
       uint8_t reg;
 
       reg = REG_TINT;
-      if (reg_read(i2c, slaveAddress, reg, &temp_int, 1) != 0) {
+      if (reg_read(i2c, MAX_slaveAddress, reg, &temp_int, 1) != 0) {
         return -1;
       }
 
       reg = REG_TFRAC;
-      if (reg_read(i2c, slaveAddress, reg, &temp_frac, 1) != 0) {
+      if (reg_read(i2c, MAX_slaveAddress, reg, &temp_frac, 1) != 0) {
         return -1;
       }
 
       max30101_final_temp = (int8_t)temp_int + 0.0625f * temp_frac;
 
-      if (reg_write(i2c, slaveAddress, REG_TEMP_EN, 0x00, 1) != 0) { ///< Die Temperature Config, Temp disable... after one read...
+      if (reg_write(i2c, MAX_slaveAddress, REG_TEMP_EN, 0x00, 1) != 0) { ///< Die Temperature Config, Temp disable... after one read...
         return -1;
       }
     }
 
-    if (reg_read(i2c, slaveAddress, REG_INT_STAT_1, &Interrupt_Status_1.all, 1) != 0) { ///< Read Interrupt flag bits
+    if (reg_read(i2c, MAX_slaveAddress, REG_INT_STAT_1, &Interrupt_Status_1.all, 1) != 0) { ///< Read Interrupt flag bits
 
       return -1;
     }
@@ -257,7 +261,7 @@ int MAX30101::SpO2mode_init(uint8_t fifo_waterlevel_mark, uint8_t sample_avg,
 
   mode_configuration.all = 0;
   mode_configuration.bit.reset = 1;
-  if (reg_write(i2c, slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) // Reset the device
+  if (reg_write(i2c, MAX_slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) // Reset the device
   {
     return -1;
   }
@@ -270,61 +274,61 @@ int MAX30101::SpO2mode_init(uint8_t fifo_waterlevel_mark, uint8_t sample_avg,
   fifo_configuration.bit.fifo_roll_over_en = 1; ///< FIFO Roll over enabled
   fifo_configuration.bit.fifo_a_full = fifo_waterlevel_mark; ///< Interrupt when certain level is filled
 
-  if (reg_write(i2c, slaveAddress, REG_FIFO_CFG, &fifo_configuration.all, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_FIFO_CFG, &fifo_configuration.all, 1) != 0) {
     return -1;
   }
 
   spo2_configuration.bit.spo2_adc_rge = 0x2; ///< ADC Range 8192 fullscale
   spo2_configuration.bit.spo2_sr = sample_rate; ///< 100 Samp/sec.
   spo2_configuration.bit.led_pw = pulse_width; ///< Pulse Width=411us and ADC Resolution=18
-  if (reg_write(i2c, slaveAddress, REG_SPO2_CFG, &spo2_configuration.all, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_SPO2_CFG, &spo2_configuration.all, 1) != 0) {
     return -1;
   }
 
-  if (reg_write(i2c, slaveAddress, REG_LED1_PA, &red_led_current, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_LED1_PA, &red_led_current, 1) != 0) {
     return -1;
   }
 
-  if (reg_write(i2c, slaveAddress, REG_LED2_PA, &ir_led_current, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_LED2_PA, &ir_led_current, 1) != 0) {
     return -1;
   }
 
   /************/
 
-  if (reg_read(i2c, slaveAddress, REG_INT_STAT_1, &status, 1) != 0) ///<  Clear INT1 by reading the status
+  if (reg_read(i2c, MAX_slaveAddress, REG_INT_STAT_1, &status, 1) != 0) ///<  Clear INT1 by reading the status
   {
     return -1;
   }
 
-  if (reg_read(i2c, slaveAddress, REG_INT_STAT_2, &status, 1) != 0) ///<  Clear INT2 by reading the status
+  if (reg_read(i2c, MAX_slaveAddress, REG_INT_STAT_2, &status, 1) != 0) ///<  Clear INT2 by reading the status
   {
     return -1;
   }
 
-  if (reg_write(i2c, slaveAddress, REG_FIFO_W_PTR, 0x00, 1) != 0) ///<  Clear FIFO ptr
+  if (reg_write(i2c, MAX_slaveAddress, REG_FIFO_W_PTR, 0x00, 1) != 0) ///<  Clear FIFO ptr
   {
     return -1;
   }
 
-  if (reg_write(i2c, slaveAddress, REG_FIFO_OVF_CNT, 0x00, 1) != 0) ///<  Clear FIFO ptr
+  if (reg_write(i2c, MAX_slaveAddress, REG_FIFO_OVF_CNT, 0x00, 1) != 0) ///<  Clear FIFO ptr
   {
     return -1;
   }
 
-  if (reg_write(i2c, slaveAddress, REG_FIFO_R_PTR, 0x00, 1) != 0) ///<  Clear FIFO ptr
+  if (reg_write(i2c, MAX_slaveAddress, REG_FIFO_R_PTR, 0x00, 1) != 0) ///<  Clear FIFO ptr
   {
     return -1;
   }
 
   Interrupt_Enable_1.all = 0;
   Interrupt_Enable_1.bit.a_full_en = 1; ///<  Enable FIFO almost full interrupt
-  if (reg_write(i2c, slaveAddress, REG_INT_EN_1, &Interrupt_Enable_1.all, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_INT_EN_1, &Interrupt_Enable_1.all, 1) != 0) {
     return -1;
   }
 
   mode_configuration.all = 0;
   mode_configuration.bit.mode = 0x03; ///< SpO2 mode
-  if (reg_write(i2c, slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) {
     return -1;
   }
 
@@ -341,23 +345,23 @@ int MAX30101::SpO2mode_stop(void) {
 
   Interrupt_Enable_1.all = 0;
   Interrupt_Enable_1.bit.a_full_en = 0; ///<  Disable FIFO almost full interrupt
-  if (reg_write(i2c, slaveAddress, REG_INT_EN_1, &Interrupt_Enable_1.all, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_INT_EN_1, &Interrupt_Enable_1.all, 1) != 0) {
     return -1;
   }
 
   mode_configuration.all = 0;
   mode_configuration.bit.mode = 0x00; ///< SpO2 mode off
-  if (reg_write(i2c, slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) {
     return -1;
   }
 
   led1_pa = 0; ///< RED LED current, 0.0
-  if (reg_write(i2c, slaveAddress, REG_LED1_PA, &led1_pa, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_LED1_PA, &led1_pa, 1) != 0) {
     return -1;
   }
 
   led2_pa = 0; ///< IR LED current, 0.0
-  if (reg_write(i2c, slaveAddress, REG_LED2_PA, &led2_pa, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_LED2_PA, &led2_pa, 1) != 0) {
     return -1;
   }
 
@@ -378,7 +382,7 @@ int MAX30101::HRmode_init(uint8_t fifo_waterlevel_mark, uint8_t sample_avg,
 
   mode_configuration.all = 0;
   mode_configuration.bit.reset = 1;
-  if (reg_write(i2c, slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) ///< Reset the device, Mode = don't use...
+  if (reg_write(i2c, MAX_slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) ///< Reset the device, Mode = don't use...
   {
     return -1;
   }
@@ -390,44 +394,44 @@ int MAX30101::HRmode_init(uint8_t fifo_waterlevel_mark, uint8_t sample_avg,
   fifo_configuration.bit.smp_ave = sample_avg;  ///< Sample averaging;
   fifo_configuration.bit.fifo_roll_over_en = 1; ///< FIFO Roll over enabled
   fifo_configuration.bit.fifo_a_full = fifo_waterlevel_mark; ///< Interrupt when certain level is filled
-  if (reg_write(i2c, slaveAddress, REG_FIFO_CFG, &fifo_configuration.all, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_FIFO_CFG, &fifo_configuration.all, 1) != 0) {
     return -1;
   }
 
   spo2_configuration.bit.spo2_adc_rge = 0x2;    ///< ADC Range 8192 fullscale
   spo2_configuration.bit.spo2_sr = sample_rate; ///< 100 Samp/sec.
   spo2_configuration.bit.led_pw = pulse_width;  ///< Pulse Width=411us and ADC Resolution=18
-  if (reg_write(i2c, slaveAddress, REG_SPO2_CFG, &spo2_configuration.all, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_SPO2_CFG, &spo2_configuration.all, 1) != 0) {
     return -1;
   }
 
-  if (reg_write(i2c, slaveAddress, REG_LED1_PA, &red_led_current, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_LED1_PA, &red_led_current, 1) != 0) {
     return -1;
   }
 
   /************/
 
-  if (reg_read(i2c, slaveAddress, REG_INT_STAT_1, &status, 1) != 0) ///<  Clear INT1 by reading the status
+  if (reg_read(i2c, MAX_slaveAddress, REG_INT_STAT_1, &status, 1) != 0) ///<  Clear INT1 by reading the status
   {
     return -1;
   }
 
-  if (reg_read(i2c, slaveAddress, REG_INT_STAT_2, &status, 1) != 0) ///< Clear INT2 by reading the status
+  if (reg_read(i2c, MAX_slaveAddress, REG_INT_STAT_2, &status, 1) != 0) ///< Clear INT2 by reading the status
   {
     return -1;
   }
 
-  if (reg_write(i2c, slaveAddress, REG_FIFO_W_PTR, 0x00, 1) != 0) ///<  Clear FIFO ptr
+  if (reg_write(i2c, MAX_slaveAddress, REG_FIFO_W_PTR, 0x00, 1) != 0) ///<  Clear FIFO ptr
   {
     return -1;
   }
 
-  if (reg_write(i2c, slaveAddress, REG_FIFO_OVF_CNT, 0x00, 1) != 0) ///<  Clear FIFO ptr
+  if (reg_write(i2c, MAX_slaveAddress, REG_FIFO_OVF_CNT, 0x00, 1) != 0) ///<  Clear FIFO ptr
   {
     return -1;
   }
 
-  if (reg_write(i2c, slaveAddress, REG_FIFO_R_PTR, 0x00, 1) != 0) ///<  Clear FIFO ptr
+  if (reg_write(i2c, MAX_slaveAddress, REG_FIFO_R_PTR, 0x00, 1) != 0) ///<  Clear FIFO ptr
   {
     return -1;
   }
@@ -436,13 +440,13 @@ int MAX30101::HRmode_init(uint8_t fifo_waterlevel_mark, uint8_t sample_avg,
   Interrupt_Enable_1.bit.a_full_en = 1;
   
   // Interrupt
-  if (reg_write(i2c, slaveAddress, REG_INT_EN_1, &Interrupt_Enable_1.all, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_INT_EN_1, &Interrupt_Enable_1.all, 1) != 0) {
     return -1;
   }
 
   mode_configuration.all = 0;
   mode_configuration.bit.mode = 0x02; ///< HR mode
-  if (reg_write(i2c, slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) {
     return -1;
   }
 
@@ -457,17 +461,17 @@ int MAX30101::HRmode_stop(void) {
 
   Interrupt_Enable_1.all = 0;
   Interrupt_Enable_1.bit.a_full_en = 0; ///< Disable FIFO almost full interrupt
-  if (reg_write(i2c, slaveAddress, REG_INT_EN_1, &Interrupt_Enable_1.all, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_INT_EN_1, &Interrupt_Enable_1.all, 1) != 0) {
     return -1;
   }
 
   mode_configuration.all = 0;
   mode_configuration.bit.mode = 0x00; ///< HR mode off
-  if (reg_write(i2c, slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) {
     return -1;
   }
 
-  if (reg_write(i2c, slaveAddress, REG_LED1_PA, 0, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_LED1_PA, 0, 1) != 0) {
     return -1;
   }
 
@@ -491,7 +495,7 @@ int MAX30101::Multimode_init(uint8_t fifo_waterlevel_mark, uint8_t sample_avg,
   
   mode_configuration.all = 0;
   mode_configuration.bit.reset = 1;
-  if (reg_write(i2c, slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) ///< Reset the device, Mode = don't use...
+  if (reg_write(i2c, MAX_slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) ///< Reset the device, Mode = don't use...
   {
     return -1;
   }
@@ -504,26 +508,26 @@ int MAX30101::Multimode_init(uint8_t fifo_waterlevel_mark, uint8_t sample_avg,
   fifo_configuration.bit.fifo_roll_over_en = 1; ///< FIFO Roll over enabled
   fifo_configuration.bit.fifo_a_full =
       fifo_waterlevel_mark; ///< Interrupt when certain level is filled
-  if (reg_write(i2c, slaveAddress, REG_FIFO_CFG, &fifo_configuration.all, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_FIFO_CFG, &fifo_configuration.all, 1) != 0) {
     return -1;
   }
 
   spo2_configuration.bit.spo2_adc_rge = 0x2;    ///< ADC Range 8192 fullscale
   spo2_configuration.bit.spo2_sr = sample_rate; ///< 100 Samp/sec.
   spo2_configuration.bit.led_pw = pulse_width;  ///< Pulse Width=411us and ADC Resolution=18
-  if (reg_write(i2c, slaveAddress, REG_SPO2_CFG, &spo2_configuration.all, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_SPO2_CFG, &spo2_configuration.all, 1) != 0) {
     return -1;
   }
 
-  if (reg_write(i2c, slaveAddress, REG_LED1_PA, &red_led_current, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_LED1_PA, &red_led_current, 1) != 0) {
     return -1;
   }
 
-  if (reg_write(i2c, slaveAddress, REG_LED2_PA, &ir_led_current, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_LED2_PA, &ir_led_current, 1) != 0) {
     return -1;
   }
 
-  if (reg_write(i2c, slaveAddress, REG_LED3_PA, &green_led_current, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_LED3_PA, &green_led_current, 1) != 0) {
     return -1;
   }
 
@@ -532,53 +536,53 @@ int MAX30101::Multimode_init(uint8_t fifo_waterlevel_mark, uint8_t sample_avg,
 
   multiLED_mode_ctrl_1.bit.slot1 = slot_1;
   multiLED_mode_ctrl_1.bit.slot2 = slot_2;
-  if (reg_write(i2c, slaveAddress, REG_SLT2_SLT1, &multiLED_mode_ctrl_1.all, 1)) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_SLT2_SLT1, &multiLED_mode_ctrl_1.all, 1)) {
     return -1;
   }
 
   multiLED_mode_ctrl_2.all = 0;
   multiLED_mode_ctrl_2.bit.slot3 = slot_3;
   multiLED_mode_ctrl_2.bit.slot4 = slot_4;
-  if (reg_write(i2c, slaveAddress, REG_SLT4_SLT3, &multiLED_mode_ctrl_2.all, 1)) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_SLT4_SLT3, &multiLED_mode_ctrl_2.all, 1)) {
     return -1;
   }
 
   /************/
 
-  if (reg_read(i2c, slaveAddress, REG_INT_STAT_1, &status, 1) != 0) ///<  Clear INT1 by reading the status
+  if (reg_read(i2c, MAX_slaveAddress, REG_INT_STAT_1, &status, 1) != 0) ///<  Clear INT1 by reading the status
   {
     return -1;
   }
 
-  if (reg_read(i2c, slaveAddress, REG_INT_STAT_2, &status, 1) != 0) ///<  Clear INT2 by reading the status
+  if (reg_read(i2c, MAX_slaveAddress, REG_INT_STAT_2, &status, 1) != 0) ///<  Clear INT2 by reading the status
   {
     return -1;
   }
 
-  if (reg_write(i2c, slaveAddress, REG_FIFO_W_PTR, 0x00, 1) != 0) ///<  Clear FIFO ptr
+  if (reg_write(i2c, MAX_slaveAddress, REG_FIFO_W_PTR, 0x00, 1) != 0) ///<  Clear FIFO ptr
   {
     return -1;
   }
 
-  if (reg_write(i2c, slaveAddress, REG_FIFO_OVF_CNT, 0x00, 1) != 0) ///<  Clear FIFO ptr
+  if (reg_write(i2c, MAX_slaveAddress, REG_FIFO_OVF_CNT, 0x00, 1) != 0) ///<  Clear FIFO ptr
   {
     return -1;
   }
 
-  if (reg_write(i2c, slaveAddress, REG_FIFO_R_PTR, 0x00, 1) != 0) ///<  Clear FIFO ptr
+  if (reg_write(i2c, MAX_slaveAddress, REG_FIFO_R_PTR, 0x00, 1) != 0) ///<  Clear FIFO ptr
   {
     return -1;
   }
 
   Interrupt_Enable_1.all = 0;
   Interrupt_Enable_1.bit.a_full_en = 1; ///<  Enable FIFO almost full interrupt
-  if (reg_write(i2c, slaveAddress, REG_INT_EN_1, &Interrupt_Enable_1.all, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_INT_EN_1, &Interrupt_Enable_1.all, 1) != 0) {
     return -1;
   }
 
   mode_configuration.all = 0;
   mode_configuration.bit.mode = 0x07; ///< Multi-LED mode
-  if (reg_write(i2c, slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) {
     return -1;
   }
 
@@ -594,25 +598,25 @@ max30101_mode_configuration_t  mode_configuration;
 
   Interrupt_Enable_1.all = 0;
   Interrupt_Enable_1.bit.a_full_en = 0; ///< Disable FIFO almost full interrupt
-  if (reg_write(i2c, slaveAddress, REG_INT_EN_1, &Interrupt_Enable_1.all, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_INT_EN_1, &Interrupt_Enable_1.all, 1) != 0) {
     return -1;
   }
 
   mode_configuration.all = 0;
   mode_configuration.bit.mode = 0x00; ///< Multi-LED mode off
-  if (reg_write(i2c, slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_MODE_CFG, &mode_configuration.all, 1) != 0) {
     return -1;
   }
 
-  if (reg_write(i2c, slaveAddress, REG_LED1_PA, 0, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_LED1_PA, 0, 1) != 0) {
     return -1;
   }
 
-  if (reg_write(i2c, slaveAddress, REG_LED2_PA, 0, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_LED2_PA, 0, 1) != 0) {
     return -1;
   }
 
-  if (reg_write(i2c, slaveAddress, REG_LED3_PA, 0, 1) != 0) {
+  if (reg_write(i2c, MAX_slaveAddress, REG_LED3_PA, 0, 1) != 0) {
     return -1;
   }
   return 0;
@@ -621,11 +625,11 @@ max30101_mode_configuration_t  mode_configuration;
 //******************************************************************************
 int MAX30101::tempread(void) {
   uint8_t temp = 0x02;
-  if (reg_write(i2c, slaveAddress, REG_INT_EN_2, &temp, 1) != 0) {///< Interrupt Enable 2, Temperature Interrupt
+  if (reg_write(i2c, MAX_slaveAddress, REG_INT_EN_2, &temp, 1) != 0) {///< Interrupt Enable 2, Temperature Interrupt
     return -1;
   }
   temp = 0x01;
-  if (reg_write(i2c, slaveAddress, REG_TEMP_EN, &temp, 1) != 0) {///< Die Temperature Config, Temp enable...
+  if (reg_write(i2c, MAX_slaveAddress, REG_TEMP_EN, &temp, 1) != 0) {///< Die Temperature Config, Temp enable...
 
     return -1;
   }
@@ -633,7 +637,7 @@ int MAX30101::tempread(void) {
 }
 
 //******************************************************************************
-int reg_write(  i2c_inst_t *i2c, 
+int MAX30101::reg_write(  i2c_inst_t *i2c, 
                 const uint addr, 
                 const uint8_t reg, 
                 uint8_t *buf,
@@ -661,7 +665,7 @@ int reg_write(  i2c_inst_t *i2c,
 
 // Read byte(s) from specified register. If nbytes > 1, read from consecutive
 // registers.
-int reg_read(  i2c_inst_t *i2c,
+int MAX30101::reg_read(  i2c_inst_t *i2c,
                 const uint addr,
                 const uint8_t reg,
                 uint8_t *buf,

@@ -1,4 +1,4 @@
-add_executable(controller_main controller_main.cpp)
+add_executable(controller_main MAX30101.cpp RA8875.cpp spo2_algorithm.cpp controller_main.cpp)
 
 # pull in common dependencies and additional i2c hardware support
 target_link_libraries(controller_main pico_stdlib hardware_i2c hardware_spi pico_multicore)

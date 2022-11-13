@@ -48,6 +48,22 @@ uint8_t raspiRA8875::readData(void) {
   return c;
 }
 
+void raspiRA8875::writeData(uint8_t c) {
+  gpio_put(cs_pin, 0);
+  uint8_t d = 0x00;
+  spi_write_blocking(spi0, &d, 1);
+  spi_write_blocking(spi0, &c, 1);
+  gpio_put(cs_pin, 1);
+}
+
+void raspiRA8875::writeCommand(uint8_t c) {
+  gpio_put(cs_pin, 0);
+  uint8_t d = 0x80;
+  spi_write_blocking(spi0, &d, 1);
+  spi_write_blocking(spi0, &c, 1);
+  gpio_put(cs_pin, 1);
+}
+
 uint8_t raspiRA8875::reg_read( spi_inst_t *spi, const uint8_t reg, uint8_t *buf, const uint8_t nbytes) {
 
     int num_bytes_read = 0;
@@ -165,7 +181,6 @@ bool raspiRA8875::displayBegin(enum RA8875sizes size) {
     printf("BCM2835 init error!\n");
     return false;
   }
-  SPIBegin();
   gpio_put(cs_pin, 0);
   gpio_put(cs_pin, 1);
   sleep_ms(100);;

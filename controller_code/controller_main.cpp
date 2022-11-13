@@ -92,6 +92,7 @@ void core1_entry(){
 
 		//calculate where on the screen the next part of the line should be,
 		//the thickness, top, and bottom of the line
+		//map ypos to be 50-430, for a 50 pixel buffer on the top and bottom of the screen
 		ypos = 480 - map(0, 255, 50, 430, ir_val);
 		thickness = map(1, 100, 1, 10, spo2);
 
@@ -173,6 +174,7 @@ int check_i2c(){
 			}
 		}
 	}
+	return -999;
 }
 
 int main()

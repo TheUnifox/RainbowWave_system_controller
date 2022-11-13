@@ -152,8 +152,6 @@
 #define MAX30101_INT_PIN 0
 #define MAX30101_MASTER_NUM 2
 
-int _sda, _scl, slaveAddress;
-
 /**
 * Maxim Integrated MAX30101 Oximeter chip
 */
