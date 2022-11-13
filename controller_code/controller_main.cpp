@@ -56,6 +56,7 @@ void core1_entry(){
     irq_set_enabled(SIO_IRQ_PROC1, true);
 
 	display.textWrite("Hi from core 1!\n");
+	printf("Hi from core 1!\n");
 
     // Send something to Core0, this should fire the interrupt.
     multicore_fifo_push_blocking(1);
@@ -63,6 +64,7 @@ void core1_entry(){
 	sleep_ms(10); //wait a bit for core0 to say all good
 	display.graphicsMode(); //set graphics mode and clear the screen
 	display.clearActiveWindow(true);
+	printf("graphics mode set, and screen cleared\n");
 
 	//initialize a bunch of ints and a bool
 	int ir_val, spo2, ypos, thickness, midpoint, bottom, top, y = 0;
@@ -79,6 +81,7 @@ void core1_entry(){
 			colour_map[x][y] = 0x00;
 		}
 	}
+	printf("colour map initialized... entering loop\n");
 
 	//enter main core1 loop
     while (true){
@@ -89,15 +92,18 @@ void core1_entry(){
 			{fifo_data = multicore_fifo_rvalid();}
 		ir_val = multicore_fifo_pop_blocking();
 		spo2 = multicore_fifo_pop_blocking();
+		printf("got data from core 0\n");
 
 		//calculate where on the screen the next part of the line should be,
 		//the thickness, top, and bottom of the line
 		//map ypos to be 50-430, for a 50 pixel buffer on the top and bottom of the screen
 		ypos = 480 - map(0, 255, 50, 430, ir_val);
 		thickness = map(1, 100, 1, 10, spo2);
+		printf("calculated ypos %d, and thickness %d\n", ypos, thickness);
 
 		bottom = (((thickness % 2) == 1) ? (ypos-((thickness/2)+0.5)) : (ypos-(thickness/2)));
 		top = bottom + thickness;
+		printf("calculated bottom %d, and top %d\n", bottom, top);
 
 		//make a new column in the map
 		if(spo2 >0 && spo2 < 100){
@@ -107,6 +113,7 @@ void core1_entry(){
 				}
 			}
 		}
+		printf("new column done\n");
 
 		//go through the map and tell the screen to draw a pixel for the line
 		//but only when there is something to draw, as well as above and below by a couple pixels
@@ -138,6 +145,7 @@ void core1_entry(){
 				}
 			}
 		}
+		printf("screen printed\n");
 
 		//go through the colour map and shift the columns right one
 		//then set the first column black
@@ -149,6 +157,7 @@ void core1_entry(){
 		for (y=50; y<430; y++){
 			colour_map[0][y] = 0x00;
 		}
+		printf("map shifted\n");
 
 		//and finally increment the colour
 		if (colour == 0xFF){
@@ -157,10 +166,12 @@ void core1_entry(){
 		else{
 			colour += 1;
 		}
+		printf("colour incremented\n");
 	}
 }
 
 int check_i2c(){
+	printf("checking i2c for device\n");
 	for (int addr = 0; addr < (1 << 7); ++addr) {
 		int ret;
     	uint8_t rxdata;
@@ -170,10 +181,12 @@ int check_i2c(){
     	else{
         	ret = i2c_read_blocking(i2c0, addr, &rxdata, 1, false);
 			if (ret < 0){
+				printf("device found at: %d\n", addr);
 				return addr;
 			}
 		}
 	}
+	printf("no device found...\n");
 	return -999;
 }
 
@@ -185,6 +198,9 @@ int main()
     gpio_pull_up(scl_pin);
 	
 	address = check_i2c();
+	while(address < 0){
+		address = check_i2c();
+	}
 	MAX30101 hr_sensor = MAX30101(sda_pin, scl_pin, address);
 	display.displayBegin(RA8875_800x480);
 	display.textMode();
@@ -195,6 +211,7 @@ int main()
 	multicore_launch_core1(core1_entry);
 
 	display.textWrite("Hi from core 0!\n");
+	printf("Hi from core 0!\n");
 
 	bool fifo_data = multicore_fifo_rvalid();
 	while(!fifo_data)
@@ -204,6 +221,7 @@ int main()
 
 	if (g == 1){
 		display.textWrite("Both cores good and communicating!\n");
+		printf("both cores are good and communicating!\n");
 	}
 
 	uint8_t data[100][3];
@@ -225,14 +243,18 @@ int main()
 			switch(j){
 				case 0:
 					ir_data[i] = data[i][0];
+					printf("ir value got: %u", ir_data[i]);
 				case 1:
 					red_data[i] = data[i][1];
+					printf("red value got: %u", red_data[i]);
 				case 2:
 					green_data[i] = data[i][2];
+					printf("green value got: %u\n", green_data[i]);
 			}
 		}
 	}
 
+	printf("entering loop...\n");
 	while(true){
 		//sample = ((uint32_t)(data[0] & 0x03) << 16) | (data[1] << 8) | data[2];
 
@@ -245,6 +267,7 @@ int main()
       		red_data[i - 25] = red_data[i];
 			green_data[i - 25] = green_data[i];
     	}
+		printf("cleared 25 slots");
 
     //take 25 sets of samples before calculating the heart rate.
     	for (int i = 75; i < 100; i++)
@@ -264,12 +287,15 @@ int main()
 				}
 			}
 		}
+		printf("got new data\n");
 
         maxim_heart_rate_and_oxygen_saturation(ir_data, 100, red_data, &spo2, &spo2_val, &hr, &hr_val);
+		printf("hr data: %d", spo2);
 
 		if (spo2_val){
 			multicore_fifo_push_blocking(ir_data[99]);
 			multicore_fifo_push_blocking(spo2);
+			printf("spo2 valid, data sent to core 1");
 		}
 		sleep_ms(10);
 	}
