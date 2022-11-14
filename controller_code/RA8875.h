@@ -26,7 +26,6 @@ class raspiRA8875
 public:
 
   raspiRA8875(uint8_t cs, uint8_t sck, uint8_t mosi, uint8_t miso);
-  void SPIBegin(void);
   bool displayBegin(enum RA8875sizes);
   void displayOn(bool on);
   void writeData(uint8_t c);
@@ -43,7 +42,7 @@ public:
   void textEnlarge(uint8_t scale);
   void setTextCursor(uint16_t x, uint16_t y);
   void setTextColor(uint16_t foreColor, uint16_t bgColor);
-  void drawPixel(int16_t x, int16_t y, uint8_t color);
+  void drawPixel(int16_t x, int16_t y, uint16_t color);
   void fillScreen(uint16_t color);
   void drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color);
   void drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);

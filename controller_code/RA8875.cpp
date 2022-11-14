@@ -36,6 +36,11 @@ raspiRA8875::raspiRA8875(uint8_t cs, uint8_t sck, uint8_t mosi, uint8_t miso) {
   sck_pin = sck;
   mosi_pin = mosi;
   miso_pin = miso;
+  spi_init(spi0, 400 * 1000);
+  gpio_set_function(cs_pin, GPIO_FUNC_SPI);
+  gpio_set_function(sck_pin, GPIO_FUNC_SPI);
+  gpio_set_function(mosi_pin, GPIO_FUNC_SPI);
+  gpio_set_function(miso_pin, GPIO_FUNC_SPI);
 }
 
 uint8_t raspiRA8875::readData(void) {
@@ -302,7 +307,7 @@ temp &= ~(1 << 6);
 writeData(temp);
 }
 
-void raspiRA8875::drawPixel(int16_t x, int16_t y, uint8_t color) {
+void raspiRA8875::drawPixel(int16_t x, int16_t y, uint16_t color) {
 reg_write(spi0,RA8875_CURH0, x);
 reg_write(spi0,RA8875_CURH1, x >> 8);
 reg_write(spi0,RA8875_CURV0, y);
@@ -310,9 +315,10 @@ reg_write(spi0,RA8875_CURV1, y >> 8);
 writeCommand(RA8875_MRWC);
 gpio_put(cs_pin, 0);
 spi_write_blocking(spi0, RA8875_DATAWRITE, 1); 
-uint8_t temp = color >> 8;
+uint8_t temp = (color & 0xFF00) >> 8;
+uint8_t temp2 = color & 0x00FF ;
 spi_write_blocking(spi0, &temp, 1);
-spi_write_blocking(spi0, &color, 1);
+spi_write_blocking(spi0, &temp2, 1);
 gpio_put(cs_pin, 1);
 }
 

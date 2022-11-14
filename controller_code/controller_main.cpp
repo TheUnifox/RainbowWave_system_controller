@@ -49,6 +49,47 @@ void core1_sio_irq() {
     multicore_fifo_clear_irq();
 }
 
+uint16_t inc_col(uint16_t colour){
+	uint8_t red;
+	uint8_t green;
+	uint8_t blue;
+
+	//decode colour
+	red = (colour & 0b1111100000000000) >> 11; //use bitwise and to mask for just red, and shift over
+	green = (colour & 0b0000011111100000) >> 5; //use bitwise and to mask for just green, and shift over
+	blue = (colour & 0b0000000000011111); //use bitwise and to mask for just blue, no need to shift
+
+	//increment or decrement colours to increment overall colour
+	if (blue == 0b00011111 && green < 0b00111111 && red == 0b00000000){
+		green += 1; //raise green
+	}
+	else if (blue > 0b00000000 && green == 0b00111111 && red == 0b00000000){
+		blue -= 1; //lower blue
+	}
+	else if (blue == 0b00000000 && green == 0b00111111 && red < 0b00011111){
+		red += 1; //raise red
+	}
+	else if (blue == 0b00000000 && green > 0b00000000 && red == 0b00011111){
+		green -= 1; //lower green
+	}
+	else if (blue < 0b00011111 && green == 0b00000000 && red == 0b00011111){
+		blue += 1; //raise blue
+	}
+	else if (blue == 0b00011111 && green == 0b00000000 && red > 0b00000000){
+		red -= 1; //lower red
+	}
+
+	//reconstruct colour and return
+	uint16_t temp = 0b0000000000000000; //initialize at zero
+	temp |= red; // add red
+	temp <<= 6; //and shift it over to make room for green
+	temp |= green; //add green
+	temp <<= 5; //and shift over to make room for blue
+	temp |= blue; //add blue
+
+	return temp;
+}
+
 void core1_entry(){
 	multicore_fifo_clear_irq();
     irq_set_exclusive_handler(SIO_IRQ_PROC1, core1_sio_irq);
@@ -72,7 +113,7 @@ void core1_entry(){
 	
 	//initialize an int to keep track of the colour
 	//and a map to keep track of the colours for each pixel
-	uint8_t colour = 0xF0;
+	uint16_t colour = 0b0000000000011111;
 	uint8_t colour_map[800][430];
 
 	// initialize the map with black
@@ -160,12 +201,7 @@ void core1_entry(){
 		printf("map shifted\n");
 
 		//and finally increment the colour
-		if (colour == 0xFF){
-			colour = 0xF0;
-		}
-		else{
-			colour += 1;
-		}
+		colour = inc_col(colour);
 		printf("colour incremented\n");
 	}
 }
@@ -196,6 +232,10 @@ int main()
 
 	gpio_pull_up(sda_pin);
     gpio_pull_up(scl_pin);
+
+	i2c_init(i2c0, 400 * 1000);
+  	gpio_set_function(sda_pin, GPIO_FUNC_I2C);
+  	gpio_set_function(scl_pin, GPIO_FUNC_I2C);
 	
 	address = check_i2c();
 	while(address < 0){
