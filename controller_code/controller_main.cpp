@@ -14,8 +14,6 @@
 
 #define map(a1,a2,b1,b2,s) (b1 + (s-a1)*(b2-b1)/(a2-a1))
 
-const uint LEDPIN = 25;
-
 const uint cs_pin = 17;
 const uint sck_pin = 18;
 const uint mosi_pin = 19;
